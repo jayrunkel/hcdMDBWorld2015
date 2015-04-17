@@ -33,6 +33,7 @@
 
 var mysqlDAL = require("./dalMySQL.js");
 var mongoDAL = require("./dalMongoDB.js");
+var writeQ = require("./writeQueue.js");
 
 //var writeModes = ["RDBMS", "Transfer", "Drain", "MongoDB"];
 //var writeMode = "RDBMS";                 
@@ -40,21 +41,36 @@ var mongoDAL = require("./dalMongoDB.js");
 
 module.exports = {
 
-    createHospital : function(writeMode, dbConnection, hospital, callback) {
-
+    createHospital : function(writeMode, mysqlConn, mongoConn, hospital, callback) {
+        console.log("[dalShim.createHospital] Start");
+        
         switch (writeMode) {
         case "RDBMS" :
-            mysqlDAL.createHospital(writeMode, dbConnection, hospital, callback);
+            mysqlDAL.createHospital(mysqlConn, hospital, callback);
             break;
         case "Transfer" :
-
+            mysqlDAL.createHospital(mysqlConn, hospital, callback);
+            writeQ.createHospital(mongoConn, hospital, callback);
             break;
         case "Drain" :
-            
+            writeQ.createHospital(mongoConn, hospital, function (err, result) {
+                if (err) return callback(err, null);
+                // it is possible that the write queue was just closed as we were transitioning from
+                // drain to both mode
+                
+                mysqlDAL.createHospital(mysqlConn, hospital, callback);
+            });
             break;
+        case "Both" :
+            mysqlDAL.createHospital(mysqlConn, hospital, callback);
+            mongoDAL.createHospital(mongoConn, hospital, callback);
+            break;            
         case "MongoDB" :
-            mongoDAL.createHospital(writeMode, dbConnection, hospital, callback);
+            mongoDAL.createHospital(mongoConn, hospital, callback);
             break;
+        default:
+            console.log("Unknown write mode: ", writeMode);
+            callback({name: "Unknown write mode", message: "Unknown write mode: " + writeMode}, null);
         }
     },
 

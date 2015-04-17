@@ -9,15 +9,38 @@ var self = {
 
         hosCol.insert(hospital, function(err, result) {
             if (err) {
-                console.log("Could not insert hospital ", err);
+                console.log("[dalMongoDB.createHospital] Could not insert hospital ", err);
                 callback(err);
             }
             else {
-                console.log("Hospital loaded");
+                console.log("[dalMongoDB.createHospital] Hospital loaded");
                 callback(null, result);
             }
         });
     },
+
+    // // Creates hospital object with related physicians. Should be only
+    // // used during an initial load as it does not create the
+    // // corresponding hospital entries on the physician objects.
+    // createHospitalObj : function(dbConnection, hospital, physicians, callback) {
+    //     self.createHospital(dbConnection, hospital, function(err, result) {
+    //         if (err) 
+    //             callback(err);
+    //         else {
+    //             // var hosCol = dbConnection.collection(self.hosColName);
+    //             // hosCol.update({_id : hospital._id}, {$set : {physicians : physicians}}, function (err, result) {
+    //             //     if (err) {
+    //             //         console.log("Could not add related physicians to newly created hospital ", hospital.id, err);
+    //             //         callback(err);
+    //             //     }
+    //             //     else {
+    //             //         console.log("Hospital object created");
+    //             //         callback(null, result);
+    //             //     }
+    //             callback(null, result);
+    //         }
+    //     });
+    // },
 
     deleteHospital : function(dbConnection, hosId, callback) {
         var hosCol = dbConnection.collection(self.hosColName);
