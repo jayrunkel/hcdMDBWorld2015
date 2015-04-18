@@ -15,25 +15,55 @@ var step = require("step");
 
 var self = {
     writeModes : ["RDBMS", "Transfer", "Drain", "Both", "MongoDB"],
-    writeMode : 0,
     queueStatus : "open",                       // "open" or "closed"
     queueCol : "writeQueue",
     statusCol : "queueStatus",
 
     initializeQueue : function(dbConn, callback) {
         var wQCol = dbConn.collection(self.queueCol);
-        
+        var statCol = dbConn.collection(self.statusCol);
+
         // add code to drop queue collection
-        Step(
+        step(
             function dropWriteQueue() {
                 wQCol.drop(this);
             },
-            function setQueueOpen(err) {
+           function createStatusCol(err, result) {
+                if (err && err.message != 'ns not found') callback(err);
+                dbConn.createCollection(self.statusCol, this);
+            },
+            function setQueueOpen(err, result) {
                 if (err) callback(err);
-                return self.setQueueStatus(dbConn, "open", callback);
-                });
+                self.setQueueStatus(dbConn, "open", this);
+            },
+            function resetWriteMode(err, result) {
+                if (err) callback(err);
+                statCol.update({_id : 1}, {$set : {writeMode : 0}}, this);
+            },
+            function done (err, result) {
+                callback(err, result);
             }
         )
+    },
+
+    getWriteMode : function (dbConn, callback) {
+        var statCol = dbConn.collection(self.statusCol);
+
+        statCol.findOne({_id : 1}, function (err, result) {
+            if (err) callback(err);
+
+            return callback(null, self.writeModes[result.writeMode]);
+        });
+    },
+
+    nextWriteMode : function (dbConn, callback) {
+        var statCol = dbConn.collection(self.statusCol);
+
+        statCol.findOneAndUpdate({_id : 1}, { $inc: { writeMode: 1 } }, {returnOriginal : false}, function (err, result) {
+            if (err) callback(err);
+
+            return callback(null, self.writeModes[result.value.writeMode]);
+        });
     },
 
     setQueueStatus : function(dbConn, status, callback) {

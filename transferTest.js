@@ -4,10 +4,11 @@ var dal = require("./dalShim.js");
 var mongoDAL = require("./dalMongoDB.js");
 var MongoClient = require('mongodb').MongoClient;
 var mysql = require('mysql');
+var step = require('step');
 
 
-var writeModes = ["RDBMS", "Transfer", "Drain", "Both", "MongoDB"];
-var writeMode = "RDBMS";
+//var writeModes = ["RDBMS", "Transfer", "Drain", "Both", "MongoDB"];
+//var writeMode = "RDBMS";
 
 
 var hId = 100000;
@@ -37,12 +38,23 @@ MongoClient.connect('mongodb://localhost:27017/hcdTest', function(err, db) {
     else {
         console.log('Connected to MongoDB');
         mongoConn = db;
-        transferTest();
+        transferTest(function (err, result) {
+            if (err)
+                console.log("[transferTest.js MongoClient.connect] Transfer error: ", err);
+            else
+                console.log("[transferTest.js MongoClient.connect] Transfer complete");
+        });
     }
 });
 
-function addHospitals(mysqlConn, mongoConn, callback) {
+/*function addHospitals(mysqlConn, mongoConn, callback) {
     var hospital;
+
+    Step(
+        function getWriteMode() {
+            return writeQ.getWriteMode(mongoConn, this);
+        },
+    )
     
     while (writeMode != "Both") {
         hospital = {
@@ -62,7 +74,7 @@ function addHospitals(mysqlConn, mongoConn, callback) {
     }
 
     callback(null, true);
-}
+}*/
 
 function transferHospitals(mysqlConn, mongoConn, callback) {
     var query = mysqlConn.query('SELECT * FROM hospitals');
@@ -81,13 +93,14 @@ function transferHospitals(mysqlConn, mongoConn, callback) {
 
         // Pausing the connnection is useful if your processing involves I/O
         console.log("[transferTest.js transferHospital] Inserting hospital ", row._id);
-        
+
+
         mysqlConn.query("SELECT physician FROM hosPhysiciansRel WHERE hospital = ?", row._id, function (err, rows) {
             var physicians = [];
 //            mysqlConn.pause();
 
             for (var i = 0; i < rows.length; i++) {
-                physicians.push(rows.physician);
+                physicians.push(rows[i].physician);
             }
             row.physicians = physicians;
             mongoDAL.createHospital(mongoConn, row, function (err, result) {
@@ -104,33 +117,44 @@ function transferHospitals(mysqlConn, mongoConn, callback) {
     });
 }
 
-function transferTest() {
-    mongoConn.dropDatabase();
-    
-    writeQ.initializeQueue(mongoConn, function (err, result) {
-        console.log("[Transfer] Starting the transfer of hospitals...");
-        writeMode = "Transfer";
-        // start transfer of hospital data
-        transferHospitals(mysqlConn, mongoConn, function(err, result) {
+function transferTest(callback) {
+
+    step (
+        function dropDB () {
+            mongoConn.dropDatabase(this);
+        },
+        function initializeWriteQ(err, result) {
+            if (err) callback(err);
+            writeQ.initializeQueue(mongoConn, this);
+        },
+        function transferWriteMode(err, result) {
+            if (err) callback(err);
+            console.log("[Transfer] Starting the transfer of hospitals...");
+            writeQ.nextWriteMode(mongoConn, this);
+        },
+        function transferHospitalRecords(err, result) {
+            if (err) callback(err);
+            console.log("Current write mode: ", result);
+            if (err) console.log(err);
+            transferHospitals(mysqlConn, mongoConn, this)
+        },
+        function drainWriteMode(err, result) {
+            if (err) callback(err);
             console.log("[Drain] Transfer complete. Draining queue...");
-            writeMode = "Drain";
+            writeQ.nextWriteMode(mongoConn, this);
+        },
+        function drainQueue(err, result) {
+            if (err) callback(err);
+            writeQ.processQueue(mongoConn, this);
+        },
+        function bothWriteMode(err, result) {
+            if (err) callback(err);
+            console.log("[Both] Queue drained. Writing to both DBs...");
+            writeQ.nextWriteMode(mongoConn, this);
+        },
+        function done (err, result) {
+            callback(err, result);
+        }
 
-            writeQ.processQueue(mongoConn, function (err, result) {
-                console.log("[Both] Queue drained. Writing to both DBs...");
-                writeMode = "Both";
-                
-            });
-        });
-        
-        // add some more hospitals
-        addHospitals(mysqlConn, mongoConn, function(err, result) {
-            console.log("All hospitals added");
-            // if we get a write queue closed error, simply retry. We
-            // are switching from drain to both modes
-            
-        });
-
-        
-    });
-    
+    );
 }
