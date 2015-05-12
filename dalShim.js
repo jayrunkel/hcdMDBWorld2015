@@ -39,39 +39,82 @@ var writeQ = require("./writeQueue.js");
 //var writeMode = "RDBMS";                 
 
 
-module.exports = {
+var self = {
 
-    createHospital : function(writeMode, mysqlConn, mongoConn, hospital, callback) {
-        console.log("[dalShim.createHospital] Start");
-        
-        switch (writeMode) {
+    shimFuncBuilder : function(context) {
+        switch (context.writeMode) {
         case "RDBMS" :
-            mysqlDAL.createHospital(mysqlConn, hospital, callback);
+            context.mysqlFunc(context.mysqlConn, context.args[0], context.callback);
             break;
         case "Transfer" :
-            mysqlDAL.createHospital(mysqlConn, hospital, callback);
-            writeQ.createHospital(mongoConn, hospital, callback);
+            context.mysqlFunc(context.mysqlConn, context.args[0], context.callback);
+            context.qFunc(context.mongoConn, context.args[0], context.callback);
             break;
         case "Drain" :
-            writeQ.createHospital(mongoConn, hospital, function (err, result) {
-                if (err) return callback(err, null);
+            context.qFunc(context.mongoConn, context.args[0], function (err, result) {
+                if (err) return context.callback(err, null);
                 // it is possible that the write queue was just closed as we were transitioning from
                 // drain to both mode
                 
-                mysqlDAL.createHospital(mysqlConn, hospital, callback);
+                context.mysqlFunc(context.mysqlConn, context.args[0], context.callback);
             });
             break;
         case "Both" :
-            mysqlDAL.createHospital(mysqlConn, hospital, callback);
-            mongoDAL.createHospital(mongoConn, hospital, callback);
+            context.mysqlFunc(context.mysqlConn, context.args[0], context.callback);
+            context.mongoFunc(context.mongoConn, context.args[0], context.callback);
             break;            
         case "MongoDB" :
-            mongoDAL.createHospital(mongoConn, hospital, callback);
+            context.mongoFunc(context.mongoConn, context.args[0], context.callback);
             break;
         default:
-            console.log("Unknown write mode: ", writeMode);
-            callback({name: "Unknown write mode", message: "Unknown write mode: " + writeMode}, null);
+            console.log("Unknown write mode: ", context.writeMode);
+            context.callback({name: "Unknown write mode", message: "Unknown write mode: " + context.writeMode}, null);
         }
+    },
+
+    createHospital : function(writeMode, mysqlConn, mongoConn, hospital, callback) {
+
+        var context = {
+            writeMode : writeMode, 
+            mysqlConn : mysqlConn,
+            mongoConn : mongoConn,
+            callback : callback,
+            mysqlFunc : mysqlDAL.createHospital,
+            mongoFunc : mongoDAL.createHospital,
+            qFunc : writeQ.createHospital,
+            args : [ hospital ]
+        };
+
+        self.shimFuncBuilder(context);
+        
+        // switch (writeMode) {
+        // case "RDBMS" :
+        //     mysqlDAL.createHospital(mysqlConn, hospital, callback);
+        //     break;
+        // case "Transfer" :
+        //     mysqlDAL.createHospital(mysqlConn, hospital, callback);
+        //     writeQ.createHospital(mongoConn, hospital, callback);
+        //     break;
+        // case "Drain" :
+        //     writeQ.createHospital(mongoConn, hospital, function (err, result) {
+        //         if (err) return callback(err, null);
+        //         // it is possible that the write queue was just closed as we were transitioning from
+        //         // drain to both mode
+                
+        //         mysqlDAL.createHospital(mysqlConn, hospital, callback);
+        //     });
+        //     break;
+        // case "Both" :
+        //     mysqlDAL.createHospital(mysqlConn, hospital, callback);
+        //     mongoDAL.createHospital(mongoConn, hospital, callback);
+        //     break;            
+        // case "MongoDB" :
+        //     mongoDAL.createHospital(mongoConn, hospital, callback);
+        //     break;
+        // default:
+        //     console.log("Unknown write mode: ", writeMode);
+        //     callback({name: "Unknown write mode", message: "Unknown write mode: " + writeMode}, null);
+        // }
     },
 
 
@@ -106,3 +149,5 @@ module.exports = {
         });
     }
 };
+
+module.exports = self;

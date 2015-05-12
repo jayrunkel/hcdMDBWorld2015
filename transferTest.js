@@ -40,6 +40,11 @@ MongoClient.connect('mongodb://localhost:27017/hcdTest', function(err, db) {
         mongoConn = db;
 
         step (
+            function cleanUpMysql () {
+                mysqlConn.query("SELECT _id FROM hospitals", function (err, hIds) {
+                    
+                })
+            },
             function dropDB () {
                 mongoConn.dropDatabase(this);
             },
