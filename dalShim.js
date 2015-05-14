@@ -34,7 +34,7 @@
 var mysqlDAL = require("./dalMySQL.js");
 var mongoDAL = require("./dalMongoDB.js");
 var writeQ = require("./writeQueue.js");
-
+var step = require('step');
 //var writeModes = ["RDBMS", "Transfer", "Drain", "MongoDB"];
 //var writeMode = "RDBMS";                 
 
@@ -47,8 +47,15 @@ var self = {
             context.mysqlFunc(context.mysqlConn, context.args[0], context.callback);
             break;
         case "Transfer" :
-            context.mysqlFunc(context.mysqlConn, context.args[0], context.callback);
-            context.qFunc(context.mongoConn, context.args[0], context.callback);
+            step (
+                function executeQueries () {
+                    context.mysqlFunc(context.mysqlConn, context.args[0], this.parallel());
+                    context.qFunc(context.mongoConn, context.args[0], this.parallel());
+                },
+                function callback (err, result1, result2) {
+                    context.callback(err, [result1, result2]);
+                }
+            );
             break;
         case "Drain" :
             context.qFunc(context.mongoConn, context.args[0], function (err, result) {
@@ -60,8 +67,15 @@ var self = {
             });
             break;
         case "Both" :
-            context.mysqlFunc(context.mysqlConn, context.args[0], context.callback);
-            context.mongoFunc(context.mongoConn, context.args[0], context.callback);
+            step (
+                function executeQueries () {
+                    context.mysqlFunc(context.mysqlConn, context.args[0], this.parallel());
+                    context.mongoFunc(context.mongoConn, context.args[0], this.parallel());
+                },
+                function callback (err, result1, result2) {
+                    context.callback(err, [result1, result2]);
+                }
+            );
             break;            
         case "MongoDB" :
             context.mongoFunc(context.mongoConn, context.args[0], context.callback);

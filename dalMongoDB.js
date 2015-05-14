@@ -13,7 +13,7 @@ var self = {
                 callback(err);
             }
             else {
-                console.log("[dalMongoDB.createHospital] Hospital loaded");
+//                console.log("[dalMongoDB.createHospital] Hospital loaded");
                 callback(null, result);
             }
         });

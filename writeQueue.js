@@ -50,9 +50,10 @@ var self = {
         var statCol = dbConn.collection(self.statusCol);
 
         statCol.findOne({_id : 1}, function (err, result) {
-            if (err) callback(err);
-
-            return callback(null, self.writeModes[result.writeMode]);
+            if (err)
+                callback(err);
+            else
+                callback(null, self.writeModes[result.writeMode]);
         });
     },
 
@@ -60,9 +61,12 @@ var self = {
         var statCol = dbConn.collection(self.statusCol);
 
         statCol.findOneAndUpdate({_id : 1}, { $inc: { writeMode: 1 } }, {returnOriginal : false}, function (err, result) {
-            if (err) callback(err);
-
-            return callback(null, self.writeModes[result.value.writeMode]);
+            if (err) {
+                console.log("[writeQueue.js - nextWriteMode] error: ", err);
+                callback(err);
+            }
+            else
+                callback(null, self.writeModes[result.value.writeMode]);
         });
     },
 

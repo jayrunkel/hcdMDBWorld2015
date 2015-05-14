@@ -2,6 +2,7 @@
 var writeQ = require("./writeQueue.js");
 var dal = require("./dalShim.js");
 var mongoDAL = require("./dalMongoDB.js");
+var mysqlDAL = require("./dalMySQL.js");
 var MongoClient = require('mongodb').MongoClient;
 var mysql = require('mysql');
 var step = require('step');
@@ -38,14 +39,19 @@ MongoClient.connect('mongodb://localhost:27017/hcdTest', function(err, db) {
     else {
         console.log('Connected to MongoDB');
         mongoConn = db;
-
         step (
-            function cleanUpMysql () {
-                mysqlConn.query("SELECT _id FROM hospitals", function (err, hIds) {
-                    
-                })
+            function getHospitals () {
+                mysqlConn.query("SELECT _id FROM hospitals WHERE _id >= 100000", this);
             },
-            function dropDB () {
+            function cleanUpMysql (err, hIds) {
+                var group = this.group();
+                console.log("Cleaning up hospitals: ", hIds);
+
+                hIds.forEach(function (hId) {
+                    mysqlDAL.deleteHospital(mysqlConn, hId._id, group());
+                });
+            },
+            function dropDB (err, result) {
                 mongoConn.dropDatabase(this);
             },
             function initializeWriteQ(err, result) {
@@ -76,7 +82,11 @@ function addHospitals(mysqlConn, mongoConn, callback) {
         },
         function performWrites(err, result) {
             var writeMode = result;
-            if (writeMode != "Both") {
+            if (writeMode == "RDBMS") {
+                // don't write anything. Transfer hasn't started
+                addHospitals(mysqlConn, mongoConn, callback);
+            }
+            else if (writeMode != "Both") {
                 hospital = {
                     _id : ++hId,
                     name : "Test Hospital " + hId,
@@ -138,20 +148,72 @@ function transferHospitals(mysqlConn, mongoConn, callback) {
     });
 }
 
+function transferPhysicians(mysqlConn, mongoConn, callback) {
+    var query = mysqlConn.query('SELECT * FROM physicians');
+
+    query.on('error', function(err) {
+        // Handle error, an 'end' event will be emitted after this as well
+        console.log("Error selecting all physicians for transfer to MongoDB", err);
+        callback(err, null);
+    });
+    
+//    query.on('fields', function(fields) {
+    // the field packets for the rows to follow
+//    });
+    
+    query.on('result', function(row) {
+
+        // Pausing the connnection is useful if your processing involves I/O
+        console.log("[transferTest.js transferHospital] Inserting physician ", row._id);
+
+
+        mysqlConn.query("SELECT hospital FROM hosPhysiciansRel WHERE physician = ?", row._id, function (err, rows) {
+            var hospitals = [];
+//            mysqlConn.pause();
+
+            for (var i = 0; i < rows.length; i++) {
+                hospitals.push(rows[i].hospital);
+            }
+            row.hospitals = hospitals;
+            mongoDAL.createPhysician(mongoConn, row, function (err, result) {
+                if (err) return callback(err, null);
+//            mysqlConn.resume();
+            });
+
+        });
+    });
+
+    query.on('end', function() {
+        // all rows have been received
+        callback(null, true);
+    });
+}
+
 function transferTest(callback) {
 
     step (
 
-        function transferWriteMode(err, result) {
-            if (err) callback(err);
+        function transferWriteMode() {
             console.log("[Transfer] Starting the transfer of hospitals...");
             writeQ.nextWriteMode(mongoConn, this);
         },
         function transferHospitalRecords(err, result) {
-            if (err) callback(err);
-            console.log("Current write mode: ", result);
-            if (err) console.log(err);
-            transferHospitals(mysqlConn, mongoConn, this)
+            if (err)
+                console.log("Error changing write mode", err);
+            else {
+                console.log("Transfering Hospital Records");
+                console.log("Current write mode: ", result);
+                transferHospitals(mysqlConn, mongoConn, this);
+            }
+        },
+        function transferPhysicianRecords(err, result) {
+            if (err)
+                console.log("Error loading hospitals", err);
+            else {
+                console.log("Transfering Hospital Records");
+                console.log("Current write mode: ", result);
+                transferPhysicians(mysqlConn, mongoConn, this);
+            }
         },
         function drainWriteMode(err, result) {
             if (err) callback(err);

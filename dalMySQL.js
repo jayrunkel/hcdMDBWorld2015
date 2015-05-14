@@ -1,4 +1,6 @@
 
+var step = require('step');
+
 module.exports = {
 
     createHospital : function(dbConnection, hospital, callback) {
@@ -16,25 +18,21 @@ module.exports = {
 
     deleteHospital : function(dbConnection, hosId, callback) {
 
-        dbConnection.query('DELETE FROM hosPhysiciansRel WHERE hospital = ?', hosId, function (err, data) {
-            if (err) {
-                console.log("Could not delete hospital physicians relations", err);
-                callback(err);
+        step (
+            function delRows () {
+                dbConnection.query('DELETE FROM hosPhysiciansRel WHERE hospital = ?', hosId, this.parallel());
+                dbConnection.query('DELETE FROM hospitals WHERE _id = ?', hosId, this.parallel());
+            },
+            function handleErrors (err, rels, hos) {
+                if (err) {
+                    console.log("Could not delete hospital ", hosId, err);
+                }
+                else {
+                    console.log("Hospital ", hosId, " deleted");
+                }
+                callback(err, hosId);
             }
-            else {
-                console.log('Hospital Physician relationships for hospital ', hosId, ' are deleted.');
-                dbConnection.query('DELETE FROM hospitals WHERE _id = ?', hosId, function (err, data) {
-                    if (err) {
-                        console.log("Could not delete hospital ", hosId, err);
-                        callback(err);
-                    }
-                    else {
-                        console.log("Hospital deleted");
-                        callback(null, true);
-                    }
-                });
-            }
-        });
+        );
     },
 
     createPhysician : function(dbConnection, physician, callback) {
