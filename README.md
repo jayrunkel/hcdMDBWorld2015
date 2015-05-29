@@ -5,8 +5,8 @@ This repository contains the code for the demonstration given during my "From Re
 - MySQL (I used 5.6.24)
 
 To run the demo:
-1. Build the MySQL schema my loading the dump file
-2. Edit the connection settings for MongoDB and MySQL in transferTest.js
-3. run the demo by executing: node transferTest.js
+- Build the MySQL schema my loading the dump file
+- Edit the connection settings for MongoDB and MySQL in transferTest.js
+- run the demo by executing: node transferTest.js
 
 Please contact me with any questions at jay dot runkel at mongodb dot com
