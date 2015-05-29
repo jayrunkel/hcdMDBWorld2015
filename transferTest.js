@@ -197,16 +197,19 @@ function transferTest(callback) {
     step (
 
         function transferWriteMode() {
+            console.log("");
             console.log("================================================================");
-            console.log("[Transfer] Starting the transfer of hospitals...");
+            console.log("[TRANSFER] Starting the transfer of hospitals...");
+            console.log("================================================================");
+            console.log("");
             writeQ.nextWriteMode(mongoConn, this);
         },
         function transferHospitalRecords(err, result) {
             if (err)
                 console.log("Error changing write mode", err);
             else {
-                console.log("Transfering Hospital Records");
-                console.log("Current write mode: ", result);
+//                console.log("Transfering Hospital Records");
+//                console.log("Current write mode: ", result);
                 transferHospitals(mysqlConn, mongoConn, this);
             }
         },
@@ -214,15 +217,18 @@ function transferTest(callback) {
             if (err)
                 console.log("Error loading hospitals", err);
             else {
-                console.log("Transfering Physician Records");
-                console.log("Current write mode: ", result);
+//                console.log("Transfering Physician Records");
+//                console.log("Current write mode: ", result);
                 transferPhysicians(mysqlConn, mongoConn, this);
             }
         },
         function drainWriteMode(err, result) {
             if (err) callback(err);
+            console.log("");
             console.log("================================================================");
-            console.log("[Drain] Transfer complete. Draining queue...");
+            console.log("[DRAIN] Transfer complete. Draining queue...");
+            console.log("================================================================");
+            console.log("");            
             writeQ.nextWriteMode(mongoConn, this);
         },
         function drainQueue(err, result) {
@@ -231,8 +237,11 @@ function transferTest(callback) {
         },
         function bothWriteMode(err, result) {
             if (err) callback(err);
+            console.log("");
             console.log("================================================================");
-            console.log("[Both] Queue drained. Writing to both DBs...");
+            console.log("[BOTH] Queue drained. Writing to both DBs...");
+            console.log("================================================================");
+            console.log("");
             writeQ.nextWriteMode(mongoConn, this);
         },
         function done (err, result) {
