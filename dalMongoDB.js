@@ -13,7 +13,22 @@ var self = {
                 callback(err);
             }
             else {
-//                console.log("[dalMongoDB.updateHospital] Hospital update");
+//                console.log("[dalMongoDB.updateHospital] Hospital updated");
+                callback(null, result);
+            }
+        });
+    },
+
+    updatePhysician : function(dbConnection, physician, callback) {
+        var phyCol = dbConnection.collection(self.phyColName);
+
+        phyCol.update(physician, {"upsert" : true}, function(err, result) {
+            if (err) {
+                console.log("[dalMongoDB.updatePhysician] Could not update physician ", err);
+                callback(err);
+            }
+            else {
+//                console.log("[dalMongoDB.updateHospital] Physician updated");
                 callback(null, result);
             }
         });

@@ -132,36 +132,46 @@ var self = {
     },
 
 
-    createPhysician : function(dbConnection, physician, callback) {
-        dbConnection.query('INSERT INTO physicians SET ?', physician, function (err, data) {
-            if (err) {
-                console.log("Could not insert physician ", err);
-                callback(err);
-            }
-            else {
-                console.log("Physician loaded");
-                callback(null, true);
-            }
-        });
+    createPhysician : function(writeMode, mysqlConn, mongoConn, physician, callback) {
+
+        if (!!physician.addr) {
+            physician.addr_street = physician.addr.street;
+            physician.addr_city = physician.addr.city;
+            physician.addr_state = physician.addr.state;
+            physician.addr_zip = physician.addr.zip;
+            delete physician.addr;
+        }
+
+        var context = {
+            writeMode : writeMode, 
+            mysqlConn : mysqlConn,
+            mongoConn : mongoConn,
+            callback : callback,
+            mysqlFunc : mysqlDAL.createPhysician,
+            mongoFunc : mongoDAL.createPhysician,
+            qFunc : writeQ.createPhysician,
+            args : [ physician ]
+        };
+
+        self.shimFuncBuilder(context);
     },
 
-    addPhyHospital : function(dbConnection, phyId, hosId, callback) {
+    addPhyHospital : function(writeMode, mysqlConn, mongoConn, phyId, hosId, callback) {
 
-        var rel = {};
-        rel.hospital = hosId;
-        rel.physician = phyId;
-        
-        dbConnection.query('INSERT INTO hosPhysiciansRel SET ?', rel, function (err, data) {
-            if (err) {
-                console.log("Could not add physician ", phyId, " to hospital ", hosId, err);
-                callback(err);
-            }
-            else {
-                console.log("Physician ", phyId, " added to hospital ", hosId);
-                callback(null, true);
-            }
-        });
-    }
+        var context = {
+            writeMode : writeMode, 
+            mysqlConn : mysqlConn,
+            mongoConn : mongoConn,
+            callback : callback,
+            mysqlFunc : mysqlDAL.addPhyHospital,
+            mongoFunc : mongoDAL.addPhyHospital,
+            qFunc : writeQ.addPhyHospital,
+            args : [ phyId, hosId ]
+        };
+
+        self.shimFuncBuilder(context);
+    }   
+ 
 };
 
 module.exports = self;

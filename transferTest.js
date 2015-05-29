@@ -13,6 +13,7 @@ var step = require('step');
 
 
 var hId = 100000;
+var pId = 100000;
 var transferLogUnit = 250;
 
 var mongoConn = null;
@@ -39,17 +40,34 @@ MongoClient.connect('mongodb://localhost:27017/hcdTest', function(err, db) {
         console.log('Could not connect to MongoDB');
     else {
         console.log('Connected to MongoDB');
+
         mongoConn = db;
         step (
             function getHospitals () {
+                console.log("");
+                console.log("================================================================");
+                console.log("[RDBMS] Cleaning up from previous run...");
+                console.log("================================================================");
+                console.log("");
                 mysqlConn.query("SELECT _id FROM hospitals WHERE _id >= 100000", this);
             },
-            function cleanUpMysql (err, hIds) {
+            function cleanUpMysqlHos (err, hIds) {
                 var group = this.group();
                 console.log("Cleaning up hospitals: ", hIds);
 
                 hIds.forEach(function (hId) {
                     mysqlDAL.deleteHospital(mysqlConn, hId._id, group());
+                });
+            },
+            function getPhysicians () {
+                mysqlConn.query("SELECT _id FROM physicians WHERE _id >= 100000", this);
+            },
+            function cleanUpMysqlPhy (err, pIds) {
+                var group = this.group();
+                console.log("Cleaning up physicians: ", pIds);
+
+                pIds.forEach(function (pId) {
+                    mysqlDAL.deletePhysician(mysqlConn, pId._id, group());
                 });
             },
             function dropDB (err, result) {
@@ -62,6 +80,7 @@ MongoClient.connect('mongodb://localhost:27017/hcdTest', function(err, db) {
             function startTest () {
                 transferTest(this.parallel());
                 addHospitals(mysqlConn, mongoConn, this.parallel());
+                addPhysicians(mysqlConn, mongoConn, this.parallel());
             },
             function finish (err, transfer, add) {
                 if (err)
@@ -73,6 +92,42 @@ MongoClient.connect('mongodb://localhost:27017/hcdTest', function(err, db) {
     }
 });
 
+
+function addPhysicians(mysqlConn, mongoConn, callback) {
+    var physician;
+
+    step(
+        function getWriteMode() {
+            return writeQ.getWriteMode(mongoConn, this);
+        },
+        function performWrites(err, result) {
+            var writeMode = result;
+            if (writeMode == "RDBMS") {
+                // don't write anything. Transfer hasn't started
+                addPhysicians(mysqlConn, mongoConn, callback);
+            }
+            else if (writeMode != "Both") {
+                physician = {
+                    _id : ++pId,
+                    first : "Doc_" + pId,
+                    last : "Smith_" + pId,
+                    addr : {
+                        street : "1 Oak Rd", 
+                        city : "New York", 
+                        state : "NY", 
+                        zip : 11111
+                    }
+                };
+                console.log("[transferTest.js addPhysician] Adding physician: ", physician._id);
+                dal.createPhysician(writeMode, mysqlConn, mongoConn, physician, function(err, result) {
+                    if (err) return callback(err, null);
+                    console.log("[transferTest.js addPhysician] physician: ", physician._id, " added.");
+                    addPhysicians(mysqlConn, mongoConn, callback);
+                });
+            }
+        }
+    );
+}
 
 function addHospitals(mysqlConn, mongoConn, callback) {
     var hospital;

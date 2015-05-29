@@ -98,7 +98,7 @@ var self = {
                 callback(err);
             }
             else {
-                console.log("Write queue element loaded");
+                console.log("[writeQueue.js] Write queue element ", wQObject.op , wQObject.args[0]._id, " loaded");
                 callback(null, result);
             }
         });
@@ -110,6 +110,9 @@ var self = {
         switch (wObject.op) {
         case "createHospital" :
             mongoDAL.updateHospital(dbConn, wObject.args[0], callback);
+            break;
+        case "createPhysician" :
+            mongoDAL.updatePhysician(dbConn, wObject.args[0], callback);
             break;
         default:
             console.log("Unknown operator ", wObject.op);
@@ -129,8 +132,20 @@ var self = {
         self.insertWriteQueue(dbConn, wObject, callback);
     },
 
+    createPhysician : function (dbConn, physician, callback) {
+
+        var wObject = {
+            time : new Date(),
+            op : "createPhysician",
+            args : [ physician ],
+            w : false
+        };
+        
+        self.insertWriteQueue(dbConn, wObject, callback);
+    },
+
     processQueue : function (dbConn, callback) {
-        console.log("Entering processQueue");
+//        console.log("Entering processQueue");
         var wQCol = dbConn.collection(self.queueCol);
 
         // check to see if the queue is open
@@ -150,11 +165,11 @@ var self = {
 
 
         qStream.on("end", function (err, data) {
-            console.log("Reached the end of the queue");
+//            console.log("Reached the end of the queue");
             wQCol.count({w: false}, function (err, count) {
                 assert.ifError(err);
                 // check to see if the queue is empty
-                console.log("Queue length is: ", count);
+                console.log("[writeQueue.js processQueue] Queue length is: ", count);
                 if (count > 0)
                     // if queue is not empty process the queue
                     self.processQueue(dbConn, callback);

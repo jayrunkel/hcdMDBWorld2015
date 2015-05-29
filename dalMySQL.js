@@ -10,7 +10,7 @@ module.exports = {
                 callback(err);
             }
             else {
-                console.log("Hospital loaded");
+//                console.log("Hospital loaded");
                 callback(null, true);
             }
         });
@@ -42,7 +42,7 @@ module.exports = {
                 callback(err);
             }
             else {
-                console.log("Physician loaded");
+//                console.log("Physician loaded");
                 callback(null, true);
             }
         });
@@ -63,7 +63,7 @@ module.exports = {
                         callback(err);
                     }
                     else {
-                        console.log("Physician deleted");
+                        console.log("Physician ", phyId, " deleted");
                         callback(null, true);
                     }
                 });
