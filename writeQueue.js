@@ -108,8 +108,8 @@ var self = {
     processWriteObject : function (dbConn, wObject, callback) {
 
         switch (wObject.op) {
-        case "createHospital" : 
-            mongoDAL.createHospital(dbConn, wObject.args[0], callback);
+        case "createHospital" :
+            mongoDAL.updateHospital(dbConn, wObject.args[0], callback);
             break;
         default:
             console.log("Unknown operator ", wObject.op);

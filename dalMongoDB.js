@@ -3,6 +3,21 @@ var self = {
 
     hosColName : "hospitals",
     phyColName : "physicians",
+
+    updateHospital : function(dbConnection, hospital, callback) {
+        var hosCol = dbConnection.collection(self.hosColName);
+
+        hosCol.update(hospital, {"upsert" : true}, function(err, result) {
+            if (err) {
+                console.log("[dalMongoDB.updateHospital] Could not update hospital ", err);
+                callback(err);
+            }
+            else {
+//                console.log("[dalMongoDB.updateHospital] Hospital update");
+                callback(null, result);
+            }
+        });
+    },
     
     createHospital : function(dbConnection, hospital, callback) {
         var hosCol = dbConnection.collection(self.hosColName);
@@ -157,7 +172,7 @@ var self = {
                 callback(err);
             }
             else {
-                console.log("Physician loaded");
+//                console.log("Physician loaded");
                 callback(null, result);
             }
         });

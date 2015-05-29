@@ -13,6 +13,7 @@ var step = require('step');
 
 
 var hId = 100000;
+var transferLogUnit = 250;
 
 var mongoConn = null;
 
@@ -109,6 +110,7 @@ function addHospitals(mysqlConn, mongoConn, callback) {
 
 function transferHospitals(mysqlConn, mongoConn, callback) {
     var query = mysqlConn.query('SELECT * FROM hospitals');
+    var transferCount = 0;
 
     query.on('error', function(err) {
         // Handle error, an 'end' event will be emitted after this as well
@@ -122,8 +124,8 @@ function transferHospitals(mysqlConn, mongoConn, callback) {
     
     query.on('result', function(row) {
 
-        // Pausing the connnection is useful if your processing involves I/O
-        console.log("[transferTest.js transferHospital] Inserting hospital ", row._id);
+        if (++transferCount%transferLogUnit == 0) 
+            console.log("[transferTest.js transferHospital] Hospitals Transfered: ", transferCount);
 
 
         mysqlConn.query("SELECT physician FROM hosPhysiciansRel WHERE hospital = ?", row._id, function (err, rows) {
@@ -150,6 +152,7 @@ function transferHospitals(mysqlConn, mongoConn, callback) {
 
 function transferPhysicians(mysqlConn, mongoConn, callback) {
     var query = mysqlConn.query('SELECT * FROM physicians');
+    var transferCount = 0;
 
     query.on('error', function(err) {
         // Handle error, an 'end' event will be emitted after this as well
@@ -163,8 +166,8 @@ function transferPhysicians(mysqlConn, mongoConn, callback) {
     
     query.on('result', function(row) {
 
-        // Pausing the connnection is useful if your processing involves I/O
-        console.log("[transferTest.js transferHospital] Inserting physician ", row._id);
+        if (++transferCount%transferLogUnit == 0) 
+            console.log("[transferTest.js transferPhysician] Physicians Transfered: ", transferCount);
 
 
         mysqlConn.query("SELECT hospital FROM hosPhysiciansRel WHERE physician = ?", row._id, function (err, rows) {
@@ -194,6 +197,7 @@ function transferTest(callback) {
     step (
 
         function transferWriteMode() {
+            console.log("================================================================");
             console.log("[Transfer] Starting the transfer of hospitals...");
             writeQ.nextWriteMode(mongoConn, this);
         },
@@ -210,13 +214,14 @@ function transferTest(callback) {
             if (err)
                 console.log("Error loading hospitals", err);
             else {
-                console.log("Transfering Hospital Records");
+                console.log("Transfering Physician Records");
                 console.log("Current write mode: ", result);
                 transferPhysicians(mysqlConn, mongoConn, this);
             }
         },
         function drainWriteMode(err, result) {
             if (err) callback(err);
+            console.log("================================================================");
             console.log("[Drain] Transfer complete. Draining queue...");
             writeQ.nextWriteMode(mongoConn, this);
         },
@@ -226,6 +231,7 @@ function transferTest(callback) {
         },
         function bothWriteMode(err, result) {
             if (err) callback(err);
+            console.log("================================================================");
             console.log("[Both] Queue drained. Writing to both DBs...");
             writeQ.nextWriteMode(mongoConn, this);
         },
